@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .header {
+            background-color: #27ae60;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+
+        .content {
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .summary-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            border-left: 4px solid #27ae60;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background-color: #f8f9fa;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+
+        .amount-positive {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .amount-negative {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 10px 0;
+            background-color: #27ae60;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        h2 {
+            color: #27ae60;
+            margin-top: 0;
+        }
+
+        .net-balance {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 15px;
+            text-align: center;
+            background-color: #d5f4e6;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ site_name }}</h1>
+            <p>Monthly Financial Summary - {{ month_name }}</p>
+        </div>
+
+        <div class="content">
+            <p>Hello {{ user.first_name|default:user.username }},</p>
+
+            <p>Here's your financial summary for <strong>{{ month_name }} {{ year }}</strong>:</p>
+
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span>Total Income:</span>
+                    <span class="amount-positive">+ ${{ total_income|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row">
+                    <span>Total Expenses:</span>
+                    <span class="amount-negative">- ${{ total_expenses|floatformat:2 }}</span>
+                </div>
+            </div>
+
+            <div class="net-balance">
+                Net Balance:
+                {% if net_balance >= 0 %}
+                <span class="amount-positive">+ ${{ net_balance|floatformat:2 }}</span>
+                {% else %}
+                <span class="amount-negative">- ${{ net_balance|floatformat:2 }}</span>
+                {% endif %}
+            </div>
+
+            {% if categories %}
+            <h3>Breakdown by Category</h3>
+
+            <h4>Income Categories:</h4>
+            {% for category, amount in income_categories.items %}
+            <div class="category-item">
+                <span>{{ category }}</span>
+                <span class="amount-positive">+ ${{ amount|floatformat:2 }}</span>
+            </div>
+            {% endfor %}
+
+            <h4 style="margin-top: 20px;">Expense Categories:</h4>
+            {% for category, amount in expense_categories.items %}
+            <div class="category-item">
+                <span>{{ category }}</span>
+                <span class="amount-negative">- ${{ amount|floatformat:2 }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if budgets_status %}
+            <h3 style="margin-top: 20px;">Budget Status</h3>
+            <p>
+                {% if budget_alerts_count > 0 %}
+                <span style="color: #e74c3c; font-weight: bold;">⚠️ {{ budget_alerts_count }} budget alert(s)</span>
+                {% else %}
+                <span style="color: #27ae60; font-weight: bold;">✅ All budgets on track</span>
+                {% endif %}
+            </p>
+            {% endif %}
+
+            <p>
+                <a href="{{ dashboard_url }}" class="button">View Detailed Dashboard</a>
+            </p>
+
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                You received this email as part of your {{ site_name }} account.<br>
+                To manage your notification preferences, visit your account settings.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{ current_year }} {{ site_name }}. All rights reserved.</p>
+            <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+
+</html>

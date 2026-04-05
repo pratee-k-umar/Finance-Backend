@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+    redis:
+        image: redis:7-alpine
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    celery-worker:
+        build: .
+        command: celery -A project_settings worker -l info
+        depends_on:
+            - redis
+        environment:
+            - DEBUG=True
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+    celery-beat:
+        build: .
+        command: celery -A project_settings beat -l info
+        depends_on:
+            - redis
+        environment:
+            - DEBUG=True
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+    django:
+        build: .
+        command: python manage.py runserver 0.0.0.0:8000
+        ports:
+            - "8000:8000"
+        depends_on:
+            - redis
+            - celery-worker
+            - celery-beat
+        environment:
+            - DEBUG=True
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+        volumes:
+            - .:/app
+
+volumes:
+    redis_data:
+
+networks:
+    default:
+        name: finance_network

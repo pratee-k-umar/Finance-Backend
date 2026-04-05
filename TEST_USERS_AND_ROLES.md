@@ -1,0 +1,595 @@
+# Testing Users, Roles & Permissions
+
+Complete testing guide for user management, role assignment, and access control.
+
+---
+
+## Quick Test Setup
+
+```bash
+# Terminal 1: Start Django
+python manage.py runserver
+
+# Existing test users already seeded:
+# Admin:    admin_user / admin123
+# Analyst:  analyst_user / analyst123
+# Viewer:   viewer_user / viewer123
+```
+
+---
+
+## Test 1: View All Users (Admin Only)
+
+### Using cURL
+```bash
+# Admin can view all users ✅
+curl http://localhost:8000/api/users/ \
+  -u admin_user:admin123
+
+# Analyst cannot view users ❌
+curl http://localhost:8000/api/users/ \
+  -u analyst_user:analyst123
+# Response: 403 Forbidden
+```
+
+### Expected Response
+```json
+[
+    {
+        "id": 1,
+        "username": "admin_user",
+        "email": "admin@example.com",
+        "first_name": "Admin",
+        "last_name": "User",
+        "role": {"id": 3, "name": "admin"},
+        "status": "active",
+        "date_joined": "2026-04-05T...",
+        "last_login": "2026-04-05T..."
+    },
+    {
+        "id": 2,
+        "username": "analyst_user",
+        "email": "analyst@example.com",
+        "first_name": "Analyst",
+        "last_name": "User",
+        "role": {"id": 2, "name": "analyst"},
+        "status": "active",
+        "date_joined": "2026-04-05T...",
+        "last_login": null
+    },
+    ...
+]
+```
+
+---
+
+## Test 2: Create New User (Admin Only)
+
+### Using cURL
+```bash
+# Admin creates new user ✅
+curl -X POST http://localhost:8000/api/users/ \
+  -u admin_user:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john_viewer",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Viewer",
+    "password": "SecurePass123",
+    "role": 1
+  }'
+
+# Analyst cannot create users ❌
+curl -X POST http://localhost:8000/api/users/ \
+  -u analyst_user:analyst123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "test_user",
+    "email": "test@example.com",
+    "first_name": "Test",
+    "last_name": "User",
+    "password": "Password123",
+    "role": 2
+  }'
+# Response: 403 Forbidden
+```
+
+### Expected Response (Success)
+```json
+{
+    "id": 4,
+    "username": "john_viewer",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Viewer",
+    "role": {"id": 1, "name": "viewer"},
+    "status": "active",
+    "date_joined": "2026-04-05T10:30:00Z",
+    "last_login": null
+}
+```
+
+---
+
+## Test 3: Update User Status (Admin Only)
+
+### Using cURL
+```bash
+# Admin deactivates user ✅
+curl -X PATCH http://localhost:8000/api/users/2/ \
+  -u admin_user:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "inactive"
+  }'
+
+# Analyst cannot update status ❌
+curl -X PATCH http://localhost:8000/api/users/2/ \
+  -u analyst_user:analyst123 \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}'
+# Response: 403 Forbidden
+```
+
+---
+
+## Test 4: Change User Role (Admin Only)
+
+### Using cURL
+```bash
+# Admin changes user role ✅
+curl -X PATCH http://localhost:8000/api/users/4/ \
+  -u admin_user:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": 2
+  }'
+
+# Analyst cannot change roles ❌
+curl -X PATCH http://localhost:8000/api/users/4/ \
+  -u analyst_user:analyst123 \
+  -H "Content-Type: application/json" \
+  -d '{"role": 3}'
+# Response: 403 Forbidden
+```
+
+### Expected Response
+```json
+{
+    "id": 4,
+    "username": "john_viewer",
+    "role": {"id": 2, "name": "analyst"},
+    "status": "active",
+    "...": "other fields"
+}
+```
+
+---
+
+## Test 5: Delete User (Admin Only)
+
+### Using cURL
+```bash
+# Admin deletes user ✅
+curl -X DELETE http://localhost:8000/api/users/4/ \
+  -u admin_user:admin123
+# Response: 204 No Content
+
+# Analyst cannot delete users ❌
+curl -X DELETE http://localhost:8000/api/users/2/ \
+  -u analyst_user:analyst123
+# Response: 403 Forbidden
+```
+
+---
+
+## Test 6: Get Own User Profile (All Roles)
+
+### Using cURL
+```bash
+# Anyone can get their own profile ✅
+curl http://localhost:8000/api/users/me/ \
+  -u viewer_user:viewer123
+
+curl http://localhost:8000/api/users/me/ \
+  -u analyst_user:analyst123
+
+curl http://localhost:8000/api/users/me/ \
+  -u admin_user:admin123
+
+# All return 200 OK
+```
+
+### Expected Response
+```json
+{
+    "id": 1,
+    "username": "viewer_user",
+    "email": "viewer@example.com",
+    "first_name": "Viewer",
+    "last_name": "User",
+    "role": {"id": 1, "name": "viewer"},
+    "status": "active",
+    "date_joined": "2026-04-05T...",
+    "last_login": "2026-04-05T..."
+}
+```
+
+---
+
+## Test 7: Role-Based Access Control - Financial Records
+
+### Viewer Can Only Read
+```bash
+# Viewer reads records ✅
+curl http://localhost:8000/api/financial-records/ \
+  -u viewer_user:viewer123
+# Response: 200 OK
+
+# Viewer cannot create records ❌
+curl -X POST http://localhost:8000/api/financial-records/ \
+  -u viewer_user:viewer123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 100,
+    "record_type": "expense",
+    "category": "Test",
+    "date": "2026-04-05"
+  }'
+# Response: 403 Forbidden
+```
+
+### Analyst Can Read & Create
+```bash
+# Analyst reads records ✅
+curl http://localhost:8000/api/financial-records/ \
+  -u analyst_user:analyst123
+
+# Analyst creates records ✅
+curl -X POST http://localhost:8000/api/financial-records/ \
+  -u analyst_user:analyst123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 100,
+    "record_type": "expense",
+    "category": "Groceries",
+    "date": "2026-04-05",
+    "notes": "Test record"
+  }'
+# Response: 201 Created
+```
+
+### Admin Can Do Everything
+```bash
+# Admin reads all records ✅
+curl http://localhost:8000/api/financial-records/ \
+  -u admin_user:admin123
+
+# Admin creates records ✅
+curl -X POST http://localhost:8000/api/financial-records/ \
+  -u admin_user:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 500,
+    "record_type": "income",
+    "category": "Salary",
+    "date": "2026-04-05"
+  }'
+
+# Admin deletes records ✅
+curl -X DELETE http://localhost:8000/api/financial-records/1/ \
+  -u admin_user:admin123
+# Response: 204 No Content
+```
+
+---
+
+## Test 8: Using Python Script
+
+Create `test_users.py`:
+
+```python
+import requests
+import json
+
+BASE_URL = "http://localhost:8000/api"
+
+# Test credentials
+users = {
+    "viewer": ("viewer_user", "viewer123"),
+    "analyst": ("analyst_user", "analyst123"),
+    "admin": ("admin_user", "admin123"),
+}
+
+def test_list_users():
+    """Test: List users (Admin only)"""
+    print("\n��� TEST: List Users")
+    
+    for role, (username, password) in users.items():
+        resp = requests.get(f"{BASE_URL}/users/", auth=(username, password))
+        status = "✅" if resp.status_code == 200 else "❌"
+        expected = "✅" if role == "admin" else "❌"
+        print(f"  {role}: {resp.status_code} {status} (expected: {expected})")
+
+def test_create_user():
+    """Test: Create user (Admin only)"""
+    print("\n➕ TEST: Create User")
+    
+    payload = {
+        "username": f"test_user_{int(time.time())}",
+        "email": f"test_{int(time.time())}@example.com",
+        "first_name": "Test",
+        "last_name": "User",
+        "password": "SecurePass123",
+        "role": 1
+    }
+    
+    for role, (username, password) in users.items():
+        resp = requests.post(
+            f"{BASE_URL}/users/",
+            auth=(username, password),
+            json=payload
+        )
+        status = "✅" if resp.status_code == 201 else "❌"
+        expected = "✅" if role == "admin" else "❌"
+        print(f"  {role}: {resp.status_code} {status} (expected: {expected})")
+
+def test_create_record():
+    """Test: Create financial record"""
+    print("\n➕ TEST: Create Financial Record")
+    
+    payload = {
+        "amount": "100.00",
+        "record_type": "expense",
+        "category": "Test",
+        "date": "2026-04-05",
+        "notes": "Test record"
+    }
+    
+    for role, (username, password) in users.items():
+        resp = requests.post(
+            f"{BASE_URL}/financial-records/",
+            auth=(username, password),
+            json=payload
+        )
+        status = "✅" if resp.status_code == 201 else "❌"
+        expected = "✅" if role in ["analyst", "admin"] else "❌"
+        print(f"  {role}: {resp.status_code} {status} (expected: {expected})")
+
+def test_read_records():
+    """Test: Read financial records"""
+    print("\n��� TEST: Read Financial Records")
+    
+    for role, (username, password) in users.items():
+        resp = requests.get(
+            f"{BASE_URL}/financial-records/",
+            auth=(username, password)
+        )
+        status = "✅" if resp.status_code == 200 else "❌"
+        print(f"  {role}: {resp.status_code} {status} (all can read)")
+
+if __name__ == "__main__":
+    import time
+    
+    print("=" * 50)
+    print("TESTING USERS, ROLES & PERMISSIONS")
+    print("=" * 50)
+    
+    test_list_users()
+    test_create_user()
+    test_create_record()
+    test_read_records()
+    
+    print("\n" + "=" * 50)
+    print("✅ TESTS COMPLETE")
+    print("=" * 50)
+```
+
+### Run the test script
+```bash
+pip install requests
+python test_users.py
+```
+
+---
+
+## Test 9: Using Django Shell
+
+```bash
+python manage.py shell
+```
+
+```python
+from finance_core.models import User, Role
+
+# List all users
+users = User.objects.all()
+for user in users:
+    print(f"{user.username} - Role: {user.role.name} - Status: {user.status}")
+
+# Get specific user
+user = User.objects.get(username="viewer_user")
+print(f"User: {user.username}")
+print(f"Role: {user.role.name}")
+print(f"Status: {user.status}")
+print(f"Is Active: {user.is_active}")
+
+# List all roles
+roles = Role.objects.all()
+for role in roles:
+    print(f"ID: {role.id} - Name: {role.name}")
+
+# Create new user
+from django.contrib.auth.hashers import make_password
+new_user = User.objects.create(
+    username="test_new_user",
+    email="test@example.com",
+    first_name="Test",
+    last_name="User",
+    role=Role.objects.get(name="viewer"),
+    status="active"
+)
+new_user.set_password("TestPass123")
+new_user.save()
+print(f"Created: {new_user.username}")
+
+# Update user status
+user = User.objects.get(username="analyst_user")
+user.status = "inactive"
+user.save()
+print(f"Updated {user.username} status to: {user.status}")
+
+# Change user role
+user = User.objects.get(username="analyst_user")
+user.role = Role.objects.get(name="admin")
+user.save()
+print(f"Changed {user.username} role to: {user.role.name}")
+
+# Delete user
+user = User.objects.get(username="test_new_user")
+user.delete()
+print(f"Deleted user")
+
+exit()
+```
+
+---
+
+## Test 10: Comprehensive Bash Script
+
+Create `test_all.sh`:
+
+```bash
+#!/bin/bash
+
+echo "================================"
+echo "TESTING USERS, ROLES & PERMISSIONS"
+echo "================================"
+
+BASE_URL="http://localhost:8000/api"
+ADMIN_USER="admin_user"
+ADMIN_PASS="admin123"
+ANALYST_USER="analyst_user"
+ANALYST_PASS="analyst123"
+VIEWER_USER="viewer_user"
+VIEWER_PASS="viewer123"
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+function test_endpoint() {
+    local name=$1
+    local method=$2
+    local endpoint=$3
+    local user=$4
+    local pass=$5
+    local data=$6
+    
+    if [ -z "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" \
+            -X $method \
+            "$BASE_URL$endpoint" \
+            -u "$user:$pass" \
+            -H "Content-Type: application/json")
+    else
+        response=$(curl -s -w "\n%{http_code}" \
+            -X $method \
+            "$BASE_URL$endpoint" \
+            -u "$user:$pass" \
+            -H "Content-Type: application/json" \
+            -d "$data")
+    fi
+    
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | head -n-1)
+    
+    printf "%-30s [%s] %s\n" "$name" "$user" "$http_code"
+    
+    if [[ $http_code =~ ^(200|201|204)$ ]]; then
+        echo -e "${GREEN}✅ SUCCESS${NC}"
+    else
+        echo -e "${RED}❌ FAILED${NC}"
+    fi
+}
+
+echo ""
+echo "��� TEST: List Users (Admin only)"
+test_endpoint "Admin - List Users" "GET" "/users/" "$ADMIN_USER" "$ADMIN_PASS"
+test_endpoint "Analyst - List Users" "GET" "/users/" "$ANALYST_USER" "$ANALYST_PASS"
+test_endpoint "Viewer - List Users" "GET" "/users/" "$VIEWER_USER" "$VIEWER_PASS"
+
+echo ""
+echo "��� TEST: Read Financial Records (All roles)"
+test_endpoint "Admin - Read Records" "GET" "/financial-records/" "$ADMIN_USER" "$ADMIN_PASS"
+test_endpoint "Analyst - Read Records" "GET" "/financial-records/" "$ANALYST_USER" "$ANALYST_PASS"
+test_endpoint "Viewer - Read Records" "GET" "/financial-records/" "$VIEWER_USER" "$VIEWER_PASS"
+
+echo ""
+echo "➕ TEST: Create Financial Record"
+DATA='{"amount":"100","record_type":"expense","category":"Test","date":"2026-04-05"}'
+test_endpoint "Admin - Create Record" "POST" "/financial-records/" "$ADMIN_USER" "$ADMIN_PASS" "$DATA"
+test_endpoint "Analyst - Create Record" "POST" "/financial-records/" "$ANALYST_USER" "$ANALYST_PASS" "$DATA"
+test_endpoint "Viewer - Create Record" "POST" "/financial-records/" "$VIEWER_USER" "$VIEWER_PASS" "$DATA"
+
+echo ""
+echo "✅ TESTS COMPLETE"
+echo "================================"
+```
+
+Run the script:
+```bash
+chmod +x test_all.sh
+./test_all.sh
+```
+
+---
+
+## Expected Test Results Summary
+
+| Test | Viewer | Analyst | Admin |
+|------|--------|---------|-------|
+| List Users | ❌ 403 | ❌ 403 | ✅ 200 |
+| Create User | ❌ 403 | ❌ 403 | ✅ 201 |
+| Update User Status | ❌ 403 | ❌ 403 | ✅ 200 |
+| Change User Role | ❌ 403 | ❌ 403 | ✅ 200 |
+| Delete User | ❌ 403 | ❌ 403 | ✅ 204 |
+| Read Records | ✅ 200 | ✅ 200 | ✅ 200 |
+| Create Record | ❌ 403 | ✅ 201 | ✅ 201 |
+| Update Record | ❌ 403 | ✅ 200 | ✅ 200 |
+| Delete Record | ❌ 403 | ✅ 204 | ✅ 204 |
+| Get Dashboard | ✅ 200 | ✅ 200 | ✅ 200 |
+
+---
+
+## Test Users & Roles Reference
+
+**Viewer (ID: 1)**
+- Can only view data
+- No create/update/delete
+- Cannot manage users
+
+**Analyst (ID: 2)**
+- Can view data
+- Can create/update/delete own records
+- Cannot manage users
+
+**Admin (ID: 3)**
+- Full access to all endpoints
+- Can manage users
+- Can view/create/update/delete any record
+
+---
+
+## Key Files for Permission Testing
+
+- `finance_api/permissions.py` — Permission classes
+- `finance_api/views.py` — ViewSet permission configurations
+- `finance_core/models.py` — User and Role models
+
+---
+
+For more info, see `README.md` and `API_GUIDE.md`
