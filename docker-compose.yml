@@ -46,6 +46,7 @@ services:
             - DEBUG=True
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - DATABASE_URL=postgresql://neondb_owner:npg_LTW7YDRBpC0X@ep-frosty-thunder-amjc5e3h-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
         volumes:
             - .:/app
 
